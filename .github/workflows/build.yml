@@ -1,0 +1,35 @@
+name: "Build"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: check Xcode version
+        run: /usr/bin/xcodebuild -version
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.9.0
+
+      - name: checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - uses: actions/setup-go@v5
+
+      - name: install dependencies
+        run: make brew-install-deps
+
+      - name: build
+        run: make
+
+      - name: Upload to Artifacts
+        if: ${{ !github.event.inputs.release_name }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: output
+          path: output/
