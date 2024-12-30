@@ -27,9 +27,10 @@ jobs:
           go-version: '1.22.5'
 
       - name: install dependencies
+        continue-on-error: true
         run: |
-          make brew-install-deps
-#          brew install porting/protobuf.rb
+          make brew-install-deps && \
+          brew install porting/protobuf.rb
 
       - name: build
         run: make
