@@ -31,6 +31,7 @@ jobs:
         continue-on-error: true
         run: |
           make brew-install-deps && \
+          brew uninstall --ignore-dependencies openssl && \
           brew install porting/protobuf.rb
 
       - name: build
