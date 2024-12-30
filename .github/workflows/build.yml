@@ -29,7 +29,7 @@ jobs:
       - name: install dependencies
         run: |
           make brew-install-deps \
-          brew unlink protobuf && brew install porting/protobuf.rb
+          brew install porting/protobuf.rb
 
       - name: build
         run: make
