@@ -20,7 +20,7 @@ FULL_OUTPUT=$(cd $OUTPUT && pwd)/$SDK_NAME/$ARCH_NAME;
 [[ ! -d $FULL_OUTPUT ]] && mkdir -p $FULL_OUTPUT;
 
 # For iphone, change to platform
-PLATFORM=$([[ $SDK_NAME == iphoneos ]] && echo "OS64" || echo "SIMULATOR64");
+PLATFORM=SIMULATORARM64_TVOS;
 [[ $SDK_NAME == iphonesimulator ]] && [[ $ARCH_NAME == arm64 ]] && PLATFORM=SIMULATORARM64;
 
 # Setup iphone deploy target
