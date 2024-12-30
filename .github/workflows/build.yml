@@ -27,7 +27,9 @@ jobs:
           go-version: '1.22.5'
 
       - name: install dependencies
-        run: make brew-install-deps
+        run: |
+          make brew-install-deps \
+          brew unlink protobuf && brew install porting/protobuf.rb
 
       - name: build
         run: make
