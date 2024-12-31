@@ -21,4 +21,4 @@ libadb.include:
 
 libadb.a:
 	rm -fv output/*/*/libadb-full.a || echo ""
-	libtool -static -o output/iphonesimulator/arm64/libadb-full.a output/iphonesimulator/arm64/*.a
+	libtool -static -o output/appletvsimulator/arm64/libadb-full.a output/appletvsimulator/arm64/*.a
