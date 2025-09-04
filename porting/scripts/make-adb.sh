@@ -18,9 +18,36 @@ for dep_repo in $(ls -d "$SOURCE_ROOT"/android-tools/vendor/*); do
   echo "→ Reset $dep_repo";
   $(cd "$dep_repo" && git checkout . && git am --abort);
 done
+echo "→ Update external submodules"
+$(cd "$SOURCE_ROOT/android-tools" && git submodule update --init --recursive)
 
-cmake -DCMAKE_OSX_SYSROOT=$SDK_NAME -DCMAKE_OSX_ARCHITECTURES=$ARCH_NAME  \
-	-DCMAKE_OSX_DEPLOYMENT_TARGET=$DEPLOYMENT_TARGET -DCMAKE_BUILD_TYPE=Debug ..;
+# Resolve SDK path for CMake
+SDK_PATH=$(xcrun --sdk $SDK_NAME --show-sdk-path)
+
+# Try to locate BoringSSL public include dir
+BORINGSSL_INC=""
+for path in \
+  "$SOURCE_ROOT/android-tools/external/boringssl/src/include" \
+  "$SOURCE_ROOT/android-tools/vendor/boringssl/src/include" \
+  "$SOURCE_ROOT/android-tools/boringssl/src/include"; do
+  if [[ -d "$path" ]]; then BORINGSSL_INC="$path"; break; fi
+done
+echo " - BoringSSL include: ${BORINGSSL_INC:-not found}"
+
+# Provide a fallback openssl include path under vendor/core/include if found
+mkdir -p "$SOURCE_ROOT/android-tools/vendor/core/include"
+if [[ -n "$BORINGSSL_INC" ]]; then
+  ln -snf "$BORINGSSL_INC/openssl" "$SOURCE_ROOT/android-tools/vendor/core/include/openssl"
+else
+  # Create an empty dir to satisfy include path; actual headers should be provided by boringssl submodule
+  mkdir -p "$SOURCE_ROOT/android-tools/vendor/core/include/openssl"
+fi
+
+cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE -DPLATFORM=$PLATFORM \
+  -DCMAKE_OSX_SYSROOT="$SDK_PATH" -DCMAKE_OSX_ARCHITECTURES=$ARCH_NAME \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=$DEPLOYMENT_TARGET -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS="-I$BORINGSSL_INC" -DCMAKE_CXX_FLAGS="-I$BORINGSSL_INC" \
+  ..;
 
 # Hack to fix build files, these actions must execute after cmake, otherwise may cause file conflict
 # copy sys/user.h for libbase
@@ -43,13 +70,8 @@ OBJ_DIR="$cmake_root/obj"
 mkdir -p "$OBJ_DIR"
 
 # Compile the wrapper as a standalone object (no linking needed)
-xcrun --sdk $SDK_NAME clang++ -std=c++17 -fobjc-arc -fno-exceptions -fno-rtti \
+xcrun --sdk $SDK_NAME clang++ -std=c++17 -fno-exceptions -fno-rtti \
   -isysroot "$SDK_PATH" -arch $ARCH_NAME \
-  -I"$SOURCE_ROOT/android-tools/vendor" \
-  -I"$SOURCE_ROOT/android-tools/vendor/adb" \
-  -I"$SOURCE_ROOT/android-tools/vendor/adb/client" \
-  -I"$SOURCE_ROOT/android-tools/vendor/core/include" \
-  -I"$SOURCE_ROOT/android-tools/vendor/libbase/include" \
   -c "$PORTING_ROOT/adb/client/adb_porting.cpp" -o "$OBJ_DIR/adb_porting.o"
 
 # Archive into a static library and place it in the output folder picked up by the top-level libtool step

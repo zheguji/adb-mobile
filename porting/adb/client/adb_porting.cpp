@@ -1,9 +1,18 @@
 #include <cstdio>
 #include <cstdarg>
 #include <cstdlib>
-#include "commandline.h"
+#include <cstddef>
 #include "adb_porting.h"
-#include "adb_trace.h"
+
+// Forward declarations to avoid including heavy ADB headers here.
+// These must match the real declarations in ADB sources.
+enum AdbTrace : int;  // defined in adb_trace.h
+// defined in commandline.h / commandline.cpp
+int adb_commandline(char **output_buffer, size_t *output_buffer_size, int argc, const char** argv);
+
+// defined in adb_trace.h / adb_trace.cpp
+void adb_trace_init(char**);
+void adb_trace_enable(AdbTrace trace_tag);
 
 int capture_printf(char **output_buffer, size_t *output_size, const char *format, ...) {
     if (output_buffer == nullptr || output_size == nullptr || format == nullptr) {
