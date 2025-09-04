@@ -50,29 +50,13 @@ jobs:
           if ! brew list --versions openssl@3 >/dev/null 2>&1; then
             brew install openssl@3
           fi
-          # 安装特定版本的 protobuf（28.3）并确保 protoc 在 PATH 中
-          if [ -f "./porting/protobuf.rb" ]; then
-            echo "Unlink any existing protobuf to avoid link conflicts"
-            brew unlink protobuf || true
-            echo "Create a local Homebrew tap and install protobuf from it"
-            brew untap local/porting || true
-            brew tap-new local/porting
-            TAP_REPO=$(brew --repo local/porting)
-            mkdir -p "$TAP_REPO/Formula"
-            cp ./porting/protobuf.rb "$TAP_REPO/Formula/protobuf.rb"
-            # 将文件加入 tap 的 git（有些 brew 版本需要该提交以识别 formula）
-            git -C "$TAP_REPO" add -A || true
-            git -C "$TAP_REPO" -c user.email=ci@example -c user.name=ci commit -m "Add protobuf formula" || true
-            brew install local/porting/protobuf
-            echo "Force-link protobuf so protoc is available on PATH"
-            brew link --overwrite protobuf || true
-            # 将 protobuf 的 bin 加入 PATH 供后续 step 使用
-            PROTO_PREFIX=$(brew --prefix protobuf 2>/dev/null || brew --prefix protobuf@28.3 2>/dev/null || true)
-            if [ -n "$PROTO_PREFIX" ] && [ -d "$PROTO_PREFIX/bin" ]; then
-              echo "$PROTO_PREFIX/bin" >> "$GITHUB_PATH"
-            fi
-          fi
           cmake --version
+
+      # 使用官方发行包安装 protoc 28.3，避免 Homebrew tap 复杂性
+      - name: Setup protoc 28.3
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "28.3"
 
       - name: Verify protoc
         run: |
