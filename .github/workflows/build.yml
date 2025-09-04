@@ -50,11 +50,26 @@ jobs:
           if ! brew list --versions openssl@3 >/dev/null 2>&1; then
             brew install openssl@3
           fi
-          # 如果项目需要本地 protobuf formula，使用相对路径安装更稳
+          # 安装特定版本的 protobuf（28.3）并确保 protoc 在 PATH 中
           if [ -f "./porting/protobuf.rb" ]; then
-            brew install ./porting/protobuf.rb || true
+            echo "Unlink any existing protobuf to avoid link conflicts"
+            brew unlink protobuf || true
+            echo "Install protobuf from local formula (porting/protobuf.rb)"
+            brew install ./porting/protobuf.rb
+            echo "Force-link protobuf so protoc is available on PATH"
+            brew link --overwrite protobuf || true
+            # 将 protobuf 的 bin 加入 PATH 供后续 step 使用
+            PROTO_PREFIX=$(brew --prefix protobuf 2>/dev/null || brew --prefix protobuf@28.3 2>/dev/null || true)
+            if [ -n "$PROTO_PREFIX" ] && [ -d "$PROTO_PREFIX/bin" ]; then
+              echo "$PROTO_PREFIX/bin" >> "$GITHUB_PATH"
+            fi
           fi
           cmake --version
+
+      - name: Verify protoc
+        run: |
+          which protoc || true
+          protoc --version || { echo "protoc is missing; protobuf install/link likely failed" >&2; exit 1; }
 
       - name: Build
         run: make
