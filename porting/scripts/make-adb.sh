@@ -35,3 +35,22 @@ make -j16 libadb crypto decrepit libcutils libzip libdiagnoseusb libbase \
 	libadb_crypto_defaults libcrypto libadb_tls_connection_defaults;
 
 find . -name "*.a" -exec cp -av {} $FULL_OUTPUT \;
+
+# Build tiny wrapper library that exports adb_*_porting symbols
+echo "→ Build libadb-porting.a (wrapper symbols)"
+SDK_PATH=$(xcrun --sdk $SDK_NAME --show-sdk-path)
+OBJ_DIR="$cmake_root/obj"
+mkdir -p "$OBJ_DIR"
+
+# Compile the wrapper as a standalone object (no linking needed)
+xcrun --sdk $SDK_NAME clang++ -std=c++17 -fobjc-arc -fno-exceptions -fno-rtti \
+  -isysroot "$SDK_PATH" -arch $ARCH_NAME \
+  -I"$SOURCE_ROOT/android-tools/vendor" \
+  -I"$SOURCE_ROOT/android-tools/vendor/adb" \
+  -I"$SOURCE_ROOT/android-tools/vendor/adb/client" \
+  -I"$SOURCE_ROOT/android-tools/vendor/core/include" \
+  -I"$SOURCE_ROOT/android-tools/vendor/libbase/include" \
+  -c "$PORTING_ROOT/adb/client/adb_porting.cpp" -o "$OBJ_DIR/adb_porting.o"
+
+# Archive into a static library and place it in the output folder picked up by the top-level libtool step
+libtool -static -o "$FULL_OUTPUT/libadb-porting.a" "$OBJ_DIR/adb_porting.o"
