@@ -58,8 +58,8 @@ ln -sfv "$SOURCE_ROOT/android-tools/vendor/core/diagnose_usb/include/diagnose_us
 # Hack source codes
 cp -av "$PORTING_ROOT/adb/client/"* "$SOURCE_ROOT/android-tools/vendor/adb/client/";
 
-make -j16 libadb crypto decrepit libcutils libzip libdiagnoseusb libbase \
-	libadb_crypto_defaults libcrypto libadb_tls_connection_defaults;
+# Build all configured targets; avoid hardcoding target names which may differ across setups
+cmake --build . -- -j16
 
 find . -name "*.a" -exec cp -av {} $FULL_OUTPUT \;
 
@@ -93,15 +93,5 @@ COMMON_CXXFLAGS=(
 xcrun --sdk $SDK_NAME clang++ "${COMMON_CXXFLAGS[@]}" \
   -c "$PORTING_ROOT/adb/client/adb_porting.cpp" -o "$OBJ_DIR/adb_porting.o"
 
-# 2) Compile commandline implementation so symbols are present even if libadb excludes it
-xcrun --sdk $SDK_NAME clang++ "${COMMON_CXXFLAGS[@]}" \
-  -I"$BORINGSSL_INC" \
-  -c "$PORTING_ROOT/adb/client/commandline.cpp" -o "$OBJ_DIR/commandline.o"
-
-# 3) Compile adb_trace implementation for trace entry points
-xcrun --sdk $SDK_NAME clang++ "${COMMON_CXXFLAGS[@]}" \
-  -c "$SOURCE_ROOT/android-tools/vendor/adb/adb_trace.cpp" -o "$OBJ_DIR/adb_trace.o"
-
 # Archive into a static library and place it in the output folder picked up by the top-level libtool step
-libtool -static -o "$FULL_OUTPUT/libadb-porting.a" \
-  "$OBJ_DIR/adb_porting.o" "$OBJ_DIR/commandline.o" "$OBJ_DIR/adb_trace.o"
+libtool -static -o "$FULL_OUTPUT/libadb-porting.a" "$OBJ_DIR/adb_porting.o"
