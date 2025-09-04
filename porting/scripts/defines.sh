@@ -41,8 +41,8 @@ if [[ $SDK_NAME == "appletvsimulator" ]]; then
     fi
 fi
 
-# Setup iphone deploy target
-DEPLOYMENT_TARGET=12.0;
+# Setup iOS/tvOS deployment target
+DEPLOYMENT_TARGET=16.6;
 
 # Setup toolchains
 if [[ $SDK_NAME == *iphone* ]]; then

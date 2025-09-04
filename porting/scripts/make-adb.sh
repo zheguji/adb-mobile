@@ -69,10 +69,39 @@ SDK_PATH=$(xcrun --sdk $SDK_NAME --show-sdk-path)
 OBJ_DIR="$cmake_root/obj"
 mkdir -p "$OBJ_DIR"
 
-# Compile the wrapper as a standalone object (no linking needed)
-xcrun --sdk $SDK_NAME clang++ -std=c++17 -fno-exceptions -fno-rtti \
-  -isysroot "$SDK_PATH" -arch $ARCH_NAME \
+# Choose correct min version flag per SDK
+MIN_VER_FLAG="-miphoneos-version-min=$DEPLOYMENT_TARGET"
+if [[ $SDK_NAME == iphonesimulator ]]; then
+  MIN_VER_FLAG="-mios-simulator-version-min=$DEPLOYMENT_TARGET"
+fi
+
+COMMON_CXXFLAGS=(
+  -std=gnu++17 -fno-exceptions -fno-rtti
+  -isysroot "$SDK_PATH" -arch $ARCH_NAME
+  $MIN_VER_FLAG
+  -I"$PORTING_ROOT/adb"
+  -I"$PORTING_ROOT/adb/client"
+  -I"$SOURCE_ROOT/android-tools/vendor"
+  -I"$SOURCE_ROOT/android-tools/vendor/adb"
+  -I"$SOURCE_ROOT/android-tools/vendor/adb/client"
+  -I"$SOURCE_ROOT/android-tools/vendor/core/include"
+  -I"$SOURCE_ROOT/android-tools/vendor/libbase/include"
+  -I"$SOURCE_ROOT/external/protobuf/src"
+)
+
+# 1) Compile the thin wrapper (no heavy includes)
+xcrun --sdk $SDK_NAME clang++ "${COMMON_CXXFLAGS[@]}" \
   -c "$PORTING_ROOT/adb/client/adb_porting.cpp" -o "$OBJ_DIR/adb_porting.o"
 
+# 2) Compile commandline implementation so symbols are present even if libadb excludes it
+xcrun --sdk $SDK_NAME clang++ "${COMMON_CXXFLAGS[@]}" \
+  -I"$BORINGSSL_INC" \
+  -c "$PORTING_ROOT/adb/client/commandline.cpp" -o "$OBJ_DIR/commandline.o"
+
+# 3) Compile adb_trace implementation for trace entry points
+xcrun --sdk $SDK_NAME clang++ "${COMMON_CXXFLAGS[@]}" \
+  -c "$SOURCE_ROOT/android-tools/vendor/adb/adb_trace.cpp" -o "$OBJ_DIR/adb_trace.o"
+
 # Archive into a static library and place it in the output folder picked up by the top-level libtool step
-libtool -static -o "$FULL_OUTPUT/libadb-porting.a" "$OBJ_DIR/adb_porting.o"
+libtool -static -o "$FULL_OUTPUT/libadb-porting.a" \
+  "$OBJ_DIR/adb_porting.o" "$OBJ_DIR/commandline.o" "$OBJ_DIR/adb_trace.o"
