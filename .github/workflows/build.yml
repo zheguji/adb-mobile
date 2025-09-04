@@ -54,12 +54,15 @@ jobs:
           if [ -f "./porting/protobuf.rb" ]; then
             echo "Unlink any existing protobuf to avoid link conflicts"
             brew unlink protobuf || true
-            echo "Create a temporary local Homebrew tap and install protobuf from it"
-            TAP_DIR="${RUNNER_TEMP}/local-protobuf-tap"
-            mkdir -p "$TAP_DIR/Formula"
-            cp ./porting/protobuf.rb "$TAP_DIR/Formula/protobuf.rb"
-            # 使用本地路径创建 tap（无需推送 git 仓库）
-            brew tap local/porting "$TAP_DIR"
+            echo "Create a local Homebrew tap and install protobuf from it"
+            brew untap local/porting || true
+            brew tap-new local/porting
+            TAP_REPO=$(brew --repo local/porting)
+            mkdir -p "$TAP_REPO/Formula"
+            cp ./porting/protobuf.rb "$TAP_REPO/Formula/protobuf.rb"
+            # 将文件加入 tap 的 git（有些 brew 版本需要该提交以识别 formula）
+            git -C "$TAP_REPO" add -A || true
+            git -C "$TAP_REPO" -c user.email=ci@example -c user.name=ci commit -m "Add protobuf formula" || true
             brew install local/porting/protobuf
             echo "Force-link protobuf so protoc is available on PATH"
             brew link --overwrite protobuf || true
