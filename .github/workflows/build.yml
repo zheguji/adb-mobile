@@ -54,8 +54,13 @@ jobs:
           if [ -f "./porting/protobuf.rb" ]; then
             echo "Unlink any existing protobuf to avoid link conflicts"
             brew unlink protobuf || true
-            echo "Install protobuf from local formula (porting/protobuf.rb)"
-            brew install ./porting/protobuf.rb
+            echo "Create a temporary local Homebrew tap and install protobuf from it"
+            TAP_DIR="${RUNNER_TEMP}/local-protobuf-tap"
+            mkdir -p "$TAP_DIR/Formula"
+            cp ./porting/protobuf.rb "$TAP_DIR/Formula/protobuf.rb"
+            # 使用本地路径创建 tap（无需推送 git 仓库）
+            brew tap local/porting "$TAP_DIR"
+            brew install local/porting/protobuf
             echo "Force-link protobuf so protoc is available on PATH"
             brew link --overwrite protobuf || true
             # 将 protobuf 的 bin 加入 PATH 供后续 step 使用
@@ -70,6 +75,10 @@ jobs:
         run: |
           which protoc || true
           protoc --version || { echo "protoc is missing; protobuf install/link likely failed" >&2; exit 1; }
+          # 如需严格要求 28.3 版本，可打开以下检查
+          if [ -n "${STRICT_PROTOBUF_VERSION:-1}" ]; then
+            protoc --version | grep -q "libprotoc 28.3" || { echo "Expected libprotoc 28.3" >&2; exit 1; }
+          fi
 
       - name: Build
         run: make
