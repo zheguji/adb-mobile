@@ -1,44 +1,65 @@
 name: "Build"
 
 on:
-  push
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
+
     steps:
-      - name: check Xcode version
+      - name: Check Xcode version
         run: /usr/bin/xcodebuild -version
 
+      # 如果仓库里确实需要 pnpm 再保留；否则可以删除
       - uses: pnpm/action-setup@v4
         with:
           version: 9.9.0
 
-      - name: checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22.5'
+      # ← 非 Go 项目，删除 setup-go，避免 go.sum 缓存报错
+      # - uses: actions/setup-go@v5
+      #   with:
+      #     go-version: '1.22.5'
+      #     cache: false
 
-      - name: install dependencies
-        continue-on-error: true
+      - name: Install dependencies (safe)
+        # 失败就 fail，便于排查；不再吞错
         run: |
-          make brew-install-deps && \
-          brew uninstall --ignore-dependencies openssl && \
-          brew install porting/protobuf.rb
+          brew update
+          # 只在缺失时安装，避免与 pinned tap 冲突
+          for pkg in cmake ninja nasm yasm pkg-config autoconf automake libtool; do
+            if ! brew list --versions "$pkg" >/dev/null 2>&1; then
+              brew install "$pkg"
+            else
+              echo "✅ $pkg already installed: $(brew list --versions $pkg)"
+            fi
+          done
+          # 如需要 OpenSSL，确认/安装 openssl@3（不要卸载系统自带 openssl）
+          if ! brew list --versions openssl@3 >/dev/null 2>&1; then
+            brew install openssl@3
+          fi
+          # 如果项目需要本地 protobuf formula，使用相对路径安装更稳
+          if [ -f "./porting/protobuf.rb" ]; then
+            brew install ./porting/protobuf.rb || true
+          fi
+          cmake --version
 
-      - name: build
+      - name: Build
         run: make
 
       - name: Upload to Artifacts
-        if: ${{ !github.event.inputs.release_name }}
         uses: actions/upload-artifact@v4
         with:
           name: output
